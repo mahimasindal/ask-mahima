@@ -1,0 +1,95 @@
+name: Keep-alive ping (Render free tier)
+
+# Render's free web services spin down after 15 minutes with no inbound
+# traffic (see the OOM-fix PR for the app-side half of this story). This
+# workflow pings both apps' health endpoints on their own schedules so they
+# stay warm, without running 24/7 — the free tier only grants 750
+# instance-hours/month per workspace, shared across both apps, so an
+# always-on pinger would exhaust that budget partway through the month and
+# get everything suspended.
+#
+# Normal schedule (both apps): Mon-Fri, 08:00-19:00 Europe/Amsterdam.
+# Netherlands and Ireland are always 1 hour apart (both shift DST on the
+# same date, so the gap never changes), so "8am-6pm Europe" isn't one
+# single window — this is the union of both countries' local 8am-6pm,
+# worked out in Amsterdam terms.
+#
+# Temporary override (ask-mahima only): 2026-08-09 through 2026-08-15,
+# ask-mahima stays warm every day (not just weekdays) from 09:00-23:59
+# Amsterdam, to ride out a LinkedIn post linking to it. careerbrain is
+# unaffected — it keeps the normal schedule throughout. Worked out with the
+# instance-hours budget in mind: that week costs ~105h (ask-mahima) + ~55h
+# (careerbrain, weekdays only) = ~160h, and the rest of August adds ~187h
+# for each app on the normal schedule — ~534h total for the month, well
+# under the 750h cap. To extend or shorten the promo window, edit
+# PROMO_START/PROMO_END in the gate step below; to end it early, just
+# delete that whole `if` block (falls through to the normal schedule).
+#
+# Cadence: pings land 13-15 minutes apart, not a metronomic 15 — landing
+# exactly on Render's 15-minute cutoff risks occasionally losing the race
+# against spin-down. The `*/13` cron step plus a random 0-90s sleep in the
+# job produces that jitter without needing any persisted state between
+# runs.
+
+on:
+  schedule:
+    # Every 13 minutes, 06:00-22:00 UTC, every day of the week. This is a
+    # superset covering both the normal 08:00-19:00 Amsterdam window (any
+    # DST) and the temporary 09:00-23:59 Amsterdam promo window — no manual
+    # edits needed at DST changeovers. The gate step below narrows this
+    # down to the real per-app windows.
+    - cron: "*/13 6-22 * * *"
+  workflow_dispatch: {} # allows a manual "Run workflow" from the Actions tab, e.g. to test the gate logic
+
+permissions: {} # this job only makes outbound GET requests; it needs no repo access
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compute per-app gates
+        id: gate
+        run: |
+          day=$(TZ='Europe/Amsterdam' date +%u)      # 1=Mon .. 7=Sun
+          hm=$(TZ='Europe/Amsterdam' date +%H%M)      # e.g. "0830" — force base-10 below,
+          hm=$((10#$hm))                              # a leading zero would otherwise read as octal
+          today=$(TZ='Europe/Amsterdam' date +%Y-%m-%d)
+
+          normal_hours=false
+          if [ "$day" -ge 1 ] && [ "$day" -le 5 ] && [ "$hm" -ge 800 ] && [ "$hm" -le 1900 ]; then
+            normal_hours=true
+          fi
+
+          # careerbrain: always the normal Mon-Fri 08:00-19:00 window.
+          careerbrain="$normal_hours"
+
+          # ask-mahima: wider every-day 09:00-23:59 window during the promo
+          # week, normal schedule outside it.
+          PROMO_START="2026-08-09"
+          PROMO_END="2026-08-15"
+          mahima=false
+          if [[ "$today" > "$PROMO_END" || "$today" < "$PROMO_START" ]]; then
+            mahima="$normal_hours"
+          elif [ "$hm" -ge 900 ] && [ "$hm" -le 2359 ]; then
+            mahima=true
+          fi
+
+          echo "mahima=$mahima" >> "$GITHUB_OUTPUT"
+          echo "careerbrain=$careerbrain" >> "$GITHUB_OUTPUT"
+          echo "Amsterdam today=$today day=$day time=$hm -> mahima=$mahima careerbrain=$careerbrain"
+
+      - name: Jitter (0-90s) so pings don't land on a fixed metronomic beat
+        if: steps.gate.outputs.mahima == 'true' || steps.gate.outputs.careerbrain == 'true'
+        run: sleep $(( RANDOM % 91 ))
+
+      - name: Ping ask-mahima
+        if: steps.gate.outputs.mahima == 'true'
+        run: |
+          curl -sf --max-time 20 https://ask-mahima.onrender.com/health \
+            || echo "::warning::ask-mahima health ping failed"
+
+      - name: Ping careerbrain
+        if: steps.gate.outputs.careerbrain == 'true'
+        run: |
+          curl -sf --max-time 20 https://careerbrain-web.vercel.app/api/health \
+            || echo "::warning::careerbrain health ping failed"

@@ -21,7 +21,11 @@ class Settings(BaseSettings):
     # LLM (via OpenRouter's OpenAI-compatible API)
     llm_model: str = "openai/gpt-4o-mini"
 
-    # Embeddings (local, no API key needed)
+    # Embeddings (local, no API key needed). Currently unused — the app uses
+    # ChromaDB's built-in ONNX embedding function (see
+    # app/services/embeddings.py), which isn't configurable by model name.
+    # Kept as a field so an EMBEDDING_MODEL_NAME env var set on Render (or
+    # elsewhere) doesn't break settings loading.
     embedding_model_name: str = "all-MiniLM-L6-v2"
 
     # Vector store

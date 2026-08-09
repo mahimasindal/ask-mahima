@@ -5,7 +5,7 @@ A small personal RAG (retrieval-augmented generation) chatbot that answers quest
 ## Stack
 
 - **Backend:** FastAPI + Pydantic + Uvicorn
-- **Embeddings:** local `sentence-transformers` (`all-MiniLM-L6-v2`) — no API key needed
+- **Embeddings:** local, via ChromaDB's built-in ONNX `all-MiniLM-L6-v2` (no `torch`, no API key needed — chosen over `sentence-transformers` to stay well under Render free tier's 512MB RAM limit)
 - **Vector DB:** ChromaDB, local persistent storage (`data/chroma_db/`)
 - **LLM:** OpenRouter (`openai` SDK pointed at OpenRouter's OpenAI-compatible API), default model `openai/gpt-4o-mini`
 - **Frontend:** a single static HTML/JS page, no framework

@@ -3,7 +3,7 @@
 Each provider is cached with lru_cache so the embedding model, ChromaDB
 client, and OpenAI client are constructed exactly once at process start
 (the first time they're needed) rather than on every request — loading the
-sentence-transformers model per request would be both slow and wasteful.
+embedding model per request would be both slow and wasteful.
 """
 
 from functools import lru_cache

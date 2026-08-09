@@ -20,4 +20,4 @@ CareerBrain – AI-powered career platform (MVP) | NestJS, TypeScript, OpenRoute
 
 ## Ask Mahima (this project!)
 
-A personal RAG chatbot built with FastAPI, ChromaDB, sentence-transformers embeddings, and an LLM via OpenRouter, that answers questions about Mahima using only her personal knowledge base.
+A personal RAG chatbot built with FastAPI, ChromaDB (with its built-in ONNX embeddings), and an LLM via OpenRouter, that answers questions about Mahima using only her personal knowledge base.

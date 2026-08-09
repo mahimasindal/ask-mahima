@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask Mahima</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;1,500;1,600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #fff8ec;
+    --ink: #3f2f22;
+    --ink-soft: #6b5340;
+    --coral: #c85038;
+    --coral-deep: #a23420;
+    --leaf: #3f7a30;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    font-family: 'Quicksand', sans-serif;
+    color: var(--ink);
+    overflow-x: hidden;
+  }
+
+  /* ========================================================= */
+  /* THE SCENE                                                  */
+  /* ========================================================= */
+
+  .scene {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background: linear-gradient(180deg, #4fa8dc 0%, #7cc9be 34%, #f3cf72 70%, #fbe6a8 100%);
+  }
+
+  .sun {
+    position: absolute;
+    top: 7%;
+    right: 13%;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fffbe6 0%, #ffde72 42%, rgba(255,222,114,0) 74%);
+  }
+
+  /* ---- clouds — the classic reliable technique: several solid overlapping
+     circles, blurred together as a group. Gradient-stop tricks (the
+     previous approach) leave visible seams where layers meet; blurring
+     actual solid shapes melts them into one soft continuous puff, which is
+     what an unmistakable cloud silhouette needs. */
+  .cloud {
+    position: absolute;
+    filter: blur(3px);
+  }
+  .cloud .puff {
+    position: absolute;
+    border-radius: 50%;
+    background: #ffffff;
+  }
+  .cloud1 { top: 10%; left: -22%; animation: drift 66s linear infinite; }
+  .cloud2 { top: 21%; left: -22%; animation: drift 88s linear infinite; animation-delay: -30s; opacity: 0.85; }
+  .cloud3 { top: 5%; left: -22%; animation: drift 104s linear infinite; animation-delay: -60s; opacity: 0.9; }
+
+  @keyframes drift {
+    from { transform: translateX(0); }
+    to   { transform: translateX(140vw); }
+  }
+
+  /* ---- layered hills (atmospheric perspective: hazier = farther) ---- */
+  .ridge {
+    position: absolute;
+    left: -5%;
+    right: -5%;
+  }
+
+  /* ---- rainbow: concentric translucent bands clipped to a dome + a
+     diagonal glass sheen for that light-through-glass look ---- */
+  /* lower and more compact than the first pass (see the ridge comment above
+     for why) — arcs just above the mountain peaks instead of reaching up
+     toward where the chat card sits */
+  .rainbow {
+    position: absolute;
+    left: 50%;
+    bottom: 15vh;
+    width: 480px;
+    height: 200px;
+    transform: translateX(-50%);
+    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+    overflow: hidden;
+    opacity: 0.6;
+    filter: blur(0.5px);
+    pointer-events: none;
+  }
+  .rainbow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-radial-gradient(
+      circle at 50% 100%,
+      transparent 0, transparent 138px,
+      #ff8f7d 138px, #ff8f7d 148px,
+      #ffc372 148px, #ffc372 158px,
+      #fff08a 158px, #fff08a 168px,
+      #9fdd8e 168px, #9fdd8e 178px,
+      #7cc3ea 178px, #7cc3ea 188px,
+      #b591ea 188px, #b591ea 198px
+    );
+  }
+  .rainbow-sheen {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(115deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 32%, rgba(255,255,255,0) 68%, rgba(255,255,255,0.4) 100%);
+    mix-blend-mode: screen;
+  }
+
+  /* ---- birds: a wrapper handles the flight path, an inner svg handles
+     the wingbeat, so the two transforms don't fight over one property ---- */
+  #birds { position: absolute; inset: 0; pointer-events: none; }
+  .bird-wrap {
+    position: absolute;
+    left: -8%;
+    animation: fly-ltr linear forwards;
+  }
+  .bird-wrap.rtl { left: auto; right: -8%; animation-name: fly-rtl; }
+  .bird-flap {
+    display: block;
+    width: 28px; height: 14px;
+    opacity: 0.7;
+    animation: flap 0.55s ease-in-out infinite;
+  }
+  @keyframes fly-ltr {
+    from { transform: translate(0, 0); }
+    to   { transform: translate(118vw, -46px); }
+  }
+  @keyframes fly-rtl {
+    from { transform: translate(0, 0); }
+    to   { transform: translate(-118vw, -38px); }
+  }
+  @keyframes flap {
+    0%, 100% { transform: scaleY(1); }
+    50%      { transform: scaleY(0.45); }
+  }
+  /* rolling hills, not alpine peaks — many points with gentle amplitude
+     read as soft undulating silhouettes instead of sharp angular mountains */
+  /*
+   * Positioned in vh (viewport-height units), not fixed px, and kept low —
+   * everything's top edge sits within the bottom ~35% of the viewport. The
+   * chat card grows with conversation length, so a fixed-px scenery layer
+   * tuned against one tall test window overlaps the card on any shorter,
+   * more realistic browser height. vh scales with the actual viewport, and
+   * staying compact leaves headroom for the card regardless of its height.
+   *
+   * Shape: distinct triangular peaks (not a smooth wavy line) with each
+   * peak given two close points at a similar height, i.e. a short flat
+   * segment at the tip — reads as a real mountain range with just enough
+   * softening at the very top to not look razor-cut.
+   */
+  /*
+   * A believable range has RHYTHM, not randomness: one clear tallest peak
+   * roughly centered, shoulders stepping down symmetrically toward each
+   * edge, and valleys that stay in a consistent, shallow band instead of
+   * swinging wildly. The previous version picked points without that
+   * discipline and read as noisy/uneven rather than as a mountain range.
+   */
+  .ridge-1 {
+    bottom: 14vh; height: 22vh;
+    background: linear-gradient(180deg, #8faed8, #6b8ec0);
+    clip-path: polygon(0% 100%, 0% 66%, 9% 42%, 13% 40%, 21% 58%, 30% 30%, 34% 27%, 42% 50%, 48% 18%, 52% 16%, 58% 48%, 66% 28%, 70% 25%, 79% 55%, 87% 40%, 91% 38%, 100% 58%, 100% 100%);
+    filter: blur(1.8px);
+    opacity: 0.85;
+  }
+  .ridge-2 {
+    bottom: 11vh; height: 19vh;
+    background: linear-gradient(180deg, #63ac97, #47907a);
+    clip-path: polygon(0% 100%, 0% 70%, 14% 48%, 18% 46%, 28% 62%, 38% 36%, 42% 34%, 50% 55%, 58% 26%, 62% 24%, 70% 52%, 78% 34%, 82% 32%, 90% 56%, 100% 44%, 100% 100%);
+    filter: blur(0.8px);
+    opacity: 0.95;
+  }
+  .ridge-3 {
+    bottom: 8vh; height: 16vh;
+    background: linear-gradient(180deg, #79b455, #52903a);
+    clip-path: polygon(0% 100%, 0% 74%, 12% 55%, 22% 65%, 34% 42%, 44% 58%, 54% 38%, 64% 56%, 76% 40%, 88% 54%, 100% 46%, 100% 100%);
+    filter: blur(0.3px);
+  }
+
+  .meadow {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 14vh;
+    min-height: 120px;
+    background: linear-gradient(180deg, #74b34c 0%, #4c8a34 55%, #386b26 100%);
+    border-radius: 50% 50% 0 0 / 34px 34px 0 0;
+  }
+  /* soft mottling so the meadow doesn't read as a flat rectangle */
+  .meadow::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 220px 60px at 12% 18%, rgba(255,255,255,0.1), transparent 70%),
+      radial-gradient(ellipse 260px 70px at 55% 10%, rgba(0,0,0,0.08), transparent 70%),
+      radial-gradient(ellipse 240px 60px at 85% 22%, rgba(255,255,255,0.09), transparent 70%);
+  }
+
+  /* ---- a cute pink cruiser bike parked in the grass — a nod to her cycling.
+     Pastel frame, a flower basket up front, thick friendly wheel rims —
+     charming, not a bike-shop schematic. ---- */
+  .bike {
+    position: absolute;
+    left: 3%;
+    bottom: 26px;
+    width: 96px;
+  }
+  .bike-svg { display: block; width: 100%; }
+  .bike-svg .frame {
+    fill: none;
+    stroke: #ec6fa0;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .bike-svg .wheel-tire {
+    fill: #fffaf3;
+    stroke: #ec6fa0;
+    stroke-width: 2.8;
+  }
+  .bike-svg .wheel-rim {
+    fill: none;
+    stroke: #f6b9d2;
+    stroke-width: 2;
+  }
+  .bike-svg .basket {
+    fill: #f3d9a8;
+    stroke: #d9b06f;
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+  }
+  .bike-svg .basket-flower { stroke: none; }
+  .bike-svg .basket-flower.f1 { fill: #ec5f97; }
+  .bike-svg .basket-flower.f2 { fill: #f0913f; }
+  .bike-svg .basket-flower.f3 { fill: #a377d6; }
+  .bike-shadow {
+    position: absolute;
+    left: 6%;
+    bottom: -6px;
+    width: 88%;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(40, 30, 15, 0.2);
+    filter: blur(2px);
+  }
+
+  /* ---- grass blades — real CSS shapes, not a texture image ---- */
+  .blade {
+    position: absolute;
+    bottom: 0;
+    width: 6px;
+    height: var(--h, 18px);
+    background: var(--c, #6e9a4f);
+    clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+    transform-origin: bottom center;
+    animation: sway var(--dur, 2.6s) ease-in-out infinite;
+    animation-delay: var(--delay, 0s);
+  }
+
+  @keyframes sway {
+    0%, 100% { transform: rotate(-6deg); }
+    50%      { transform: rotate(6deg); }
+  }
+
+  /* ---- flowers — layered radial-gradient blooms, no emoji ---- */
+  .flower {
+    position: absolute;
+    bottom: 0;
+    width: 20px;
+    height: var(--h, 62px);
+    transform-origin: bottom center;
+    animation: sway var(--dur, 3.6s) ease-in-out infinite;
+    animation-delay: var(--delay, 0s);
+  }
+  .flower .stem {
+    position: absolute;
+    left: 50%; bottom: 0;
+    width: 2px; height: 100%;
+    background: linear-gradient(180deg, #7c9c5c 0%, #557539 100%);
+    transform: translateX(-50%);
+    border-radius: 2px;
+  }
+  .flower .leaf {
+    position: absolute;
+    width: 13px; height: 7px;
+    background: linear-gradient(120deg, #8fb56e, #5f8746);
+    border-radius: 0 90% 0 90%;
+  }
+  .flower .leaf.l { left: -2px; bottom: 30%; transform: rotate(30deg); }
+  .flower .leaf.r { right: -2px; bottom: 46%; transform: rotate(-30deg) scaleX(-1); border-radius: 90% 0 90% 0; }
+
+  /*
+   * Petal circles use an EXPLICIT pixel radius ("circle 6.5px"), not a bare
+   * "circle". Without an explicit size, a CSS radial-gradient's default
+   * radius is the distance to the box's *farthest corner* from the gradient's
+   * center — which varies wildly for off-center petals near a corner vs. one
+   * near an edge. Percentage color-stops are relative to THAT radius, so
+   * corner-adjacent petals were inflating to nearly fill the whole box —
+   * which is exactly why the flowers rendered as solid squares. A fixed
+   * pixel radius makes every petal the same real size regardless of position.
+   */
+  .flower .bloom {
+    position: absolute;
+    top: -3px; left: 50%;
+    width: 24px; height: 24px;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 2px 1.5px rgba(70, 45, 40, 0.2));
+    background:
+      radial-gradient(circle 6.5px at 50% 21%, var(--petal) 96%, transparent 100%),
+      radial-gradient(circle 6.5px at 78% 41%, var(--petal) 96%, transparent 100%),
+      radial-gradient(circle 6.5px at 67% 74%, var(--petal) 96%, transparent 100%),
+      radial-gradient(circle 6.5px at 33% 74%, var(--petal) 96%, transparent 100%),
+      radial-gradient(circle 6.5px at 22% 41%, var(--petal) 96%, transparent 100%),
+      radial-gradient(circle 5px at 50% 50%, #fff1b8 0 58%, #eeb857 64% 92%, transparent 100%);
+  }
+  .flower.pink   .bloom { --petal: #ec5f97; }
+  .flower.blush  .bloom { --petal: #f6a9bb; }
+  .flower.lav    .bloom { --petal: #a377d6; }
+  .flower.peach  .bloom { --petal: #f0913f; }
+  .flower.cream  .bloom { --petal: #fff3d6; }
+  .flower.sky    .bloom { --petal: #4fa8d8; }
+
+  /* mini version of the same bloom, used as a decorative mark elsewhere in the UI */
+  .bloom-mark {
+    display: inline-block;
+    width: 15px; height: 15px;
+    flex: none;
+    background:
+      radial-gradient(circle 4px at 50% 21%, var(--petal, #ec5f97) 96%, transparent 100%),
+      radial-gradient(circle 4px at 78% 41%, var(--petal, #ec5f97) 96%, transparent 100%),
+      radial-gradient(circle 4px at 67% 74%, var(--petal, #ec5f97) 96%, transparent 100%),
+      radial-gradient(circle 4px at 33% 74%, var(--petal, #ec5f97) 96%, transparent 100%),
+      radial-gradient(circle 4px at 22% 41%, var(--petal, #ec5f97) 96%, transparent 100%),
+      radial-gradient(circle 3px at 50% 50%, #fff1b8 0 58%, #eeb857 64% 92%, transparent 100%);
+  }
+
+  /* ---- butterflies — wings flap (inner <g> elements), the wrapper wanders
+     up on a wavy multi-waypoint path instead of a straight line, so it
+     reads as fluttering rather than floating ---- */
+  .butterfly-particle {
+    position: absolute;
+    bottom: 4%;
+    opacity: 0;
+    animation: flutter var(--dur, 15s) ease-in-out infinite;
+    animation-delay: var(--delay, 0s);
+  }
+  .butterfly-svg { display: block; width: 22px; height: 16px; }
+  .butterfly-svg .wing { transform-origin: 14px 8px; }
+  .butterfly-svg .wing-left  { animation: flapL 0.45s ease-in-out infinite; }
+  .butterfly-svg .wing-right { animation: flapR 0.45s ease-in-out infinite; }
+  @keyframes flapL { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.3); } }
+  @keyframes flapR { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.3); } }
+
+  @keyframes flutter {
+    0%   { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    8%   { opacity: 0.9; }
+    22%  { transform: translate(34px, -70px) rotate(10deg); }
+    40%  { transform: translate(-16px, -140px) rotate(-8deg); }
+    58%  { transform: translate(30px, -215px) rotate(9deg); }
+    76%  { transform: translate(-10px, -290px) rotate(-7deg); }
+    92%  { opacity: 0.7; }
+    100% { transform: translate(18px, -370px) rotate(4deg); opacity: 0; }
+  }
+
+  /* ========================================================= */
+  /* FOREGROUND APP                                              */
+  /* ========================================================= */
+
+  .app {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 16px 200px;
+  }
+
+  header { text-align: center; margin-bottom: 18px; display: flex; flex-direction: column; align-items: center; }
+
+  /* Design principle: the illustrated scene carries the whimsy (flowers,
+     butterflies, the bike) — the UI chrome stays clean and restrained by
+     contrast, rather than piling more decoration onto the title itself.
+     Refined glass: higher blur + saturation reads as frosted glass, not a
+     solid cutout card. */
+  /*
+   * A backdrop-filter card at 40% white + saturate(180%) sounded elegant in
+   * theory, but in practice it amplifies whatever's directly behind it —
+   * against the blue sky that's a strongly saturated blue tint, which is a
+   * poor, unpredictable canvas for text contrast (worse against a warm
+   * gradient that trails off into a lighter orange). Fixed by making the
+   * card itself a consistent, high-opacity warm cream — it barely samples
+   * the scene at all now, so contrast holds no matter what's behind it —
+   * and by giving the title a narrow dark-to-dark gradient instead of one
+   * that fades toward a light, low-contrast orange.
+   */
+  .title-card {
+    background: rgba(255, 251, 242, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.85);
+    border-radius: 18px;
+    padding: 20px 46px 22px;
+    box-shadow: 0 16px 36px rgba(50, 40, 20, 0.16), inset 0 1px 0 rgba(255,255,255,0.7);
+  }
+  header h1 {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 2.9rem;
+    margin: 0;
+    letter-spacing: 0.2px;
+    background: linear-gradient(120deg, #7a2415, #9c3420);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  header .tagline {
+    margin: 8px 0 0;
+    font-size: 0.66rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #6b5340;
+    position: relative;
+    padding-top: 10px;
+  }
+  header .tagline::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    width: 28px;
+    height: 1.5px;
+    transform: translateX(-50%);
+    background: linear-gradient(90deg, #c85038, #d9a35a);
+  }
+
+  .chat-card {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    max-width: 600px;
+    background: linear-gradient(180deg, rgba(255,253,248,0.98), rgba(255,249,238,0.95));
+    backdrop-filter: blur(18px) saturate(170%);
+    -webkit-backdrop-filter: blur(18px) saturate(170%);
+    border: 1px solid rgba(255,255,255,0.85);
+    border-radius: 22px;
+    /* layered, low-opacity shadows read as soft and premium; one hard
+       shadow reads as a UI-kit default */
+    box-shadow:
+      0 2px 6px rgba(60, 45, 15, 0.06),
+      0 14px 30px rgba(60, 45, 15, 0.1),
+      0 32px 64px rgba(60, 45, 15, 0.1),
+      inset 0 1px 0 rgba(255,255,255,0.7);
+    padding: 26px 24px 24px;
+    display: flex;
+    flex-direction: column;
+  }
+  /* one restrained two-tone line instead of a four-color rainbow bar —
+     ties back to the title gradient rather than competing with it */
+  .chat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 22px; right: 22px;
+    height: 2.5px;
+    border-radius: 0 0 3px 3px;
+    background: linear-gradient(90deg, #c85038, #d9a35a);
+    opacity: 0.7;
+  }
+
+  #messages {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 200px;
+    max-height: 30vh;
+    overflow-y: auto;
+    padding: 4px 6px 8px;
+  }
+  #messages::-webkit-scrollbar { width: 6px; }
+  #messages::-webkit-scrollbar-thumb { background: #e3d4b8; border-radius: 6px; }
+
+  .empty-hint {
+    margin: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ink-soft);
+    text-align: center;
+    font-size: 0.95rem;
+    padding: 20px;
+  }
+
+  .row { display: flex; }
+  .row.user { justify-content: flex-end; }
+  .row.assistant { justify-content: flex-start; }
+
+  .bubble {
+    max-width: 82%;
+    padding: 12px 16px;
+    line-height: 1.45;
+    font-size: 0.98rem;
+    animation: pop 0.25s ease;
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .row.user .bubble {
+    background: linear-gradient(160deg, var(--coral), var(--coral-deep));
+    color: #fff8f2;
+    border-radius: 18px 18px 4px 18px;
+    box-shadow: 0 4px 12px rgba(162, 52, 32, 0.4);
+  }
+  .row.assistant .bubble {
+    background: linear-gradient(160deg, #f2f8ea, #e5f0d8);
+    border: 1px solid #cfe3ba;
+    border-radius: 4px 18px 18px 18px;
+    box-shadow: 0 4px 10px rgba(90, 110, 50, 0.12);
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .row.assistant .bubble .bloom-mark { margin-top: 2px; }
+  .row.assistant .bubble .bubble-content { flex: 1; min-width: 0; }
+
+  .sources {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .source-tag {
+    position: relative;
+    font-size: 0.72rem;
+    background: #eef5e6;
+    color: var(--leaf);
+    border: 1px solid #d9e9c9;
+    border-radius: 999px;
+    padding: 2px 10px 2px 18px;
+  }
+  .source-tag::before {
+    content: '';
+    position: absolute;
+    left: 7px; top: 50%;
+    width: 8px; height: 8px;
+    background: linear-gradient(135deg, #8fb56e, #557539);
+    border-radius: 0 70% 0 70%;
+    transform: translateY(-50%) rotate(-25deg);
+  }
+  .no-sources {
+    margin-top: 8px;
+    font-size: 0.72rem;
+    color: #b9a98d;
+    font-style: italic;
+  }
+
+  .error-bubble { background: #fdeceb !important; border-color: #f2c8c3 !important; }
+  .error-bubble .bubble-content { color: #8a4a42; }
+
+  form {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1.5px solid #e6d7b8;
+    border-radius: 999px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: #fffdf7;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus { border-color: var(--coral-deep); }
+
+  button {
+    padding: 0 22px;
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(160deg, #6fae47, var(--leaf));
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(63, 122, 48, 0.4);
+    transition: transform 0.15s;
+  }
+  button:hover:not(:disabled) { transform: translateY(-1px); }
+  button:disabled { opacity: 0.55; cursor: default; transform: none; }
+
+  .typing { display: inline-flex; gap: 3px; align-items: center; padding: 3px 0; }
+  .typing span {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ink-soft);
+    animation: blink 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: 0.2; } 40% { opacity: 1; } }
+
+  /* ---- ambient-sound toggle — browsers block audio without a user
+     gesture, so this button is the only way the soundscape starts ---- */
+  .sound-toggle {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 16px;
+    border: 1px solid rgba(255,255,255,0.75);
+    border-radius: 999px;
+    background: rgba(255, 253, 247, 0.88);
+    backdrop-filter: blur(10px) saturate(160%);
+    -webkit-backdrop-filter: blur(10px) saturate(160%);
+    box-shadow: 0 8px 22px rgba(60, 45, 15, 0.2);
+    font-family: 'Quicksand', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .sound-toggle:hover { transform: translateY(-1px); }
+  .sound-toggle .eq-bars { display: flex; align-items: flex-end; gap: 2.5px; height: 14px; }
+  .sound-toggle .eq-bars span {
+    width: 3px;
+    background: var(--leaf);
+    border-radius: 2px;
+    height: 4px;
+  }
+  .sound-toggle.playing .eq-bars span { animation: eq 0.9s ease-in-out infinite; }
+  .sound-toggle.playing .eq-bars span:nth-child(1) { animation-delay: 0s; }
+  .sound-toggle.playing .eq-bars span:nth-child(2) { animation-delay: 0.2s; }
+  .sound-toggle.playing .eq-bars span:nth-child(3) { animation-delay: 0.35s; }
+  @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 14px; } }
+
+  @media (max-width: 480px) {
+    header h1 { font-size: 2.4rem; }
+    .app { padding-bottom: 160px; }
+    .sound-toggle .sound-label { display: none; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="scene">
+    <div class="sun"></div>
+
+    <div class="cloud cloud1">
+      <span class="puff" style="left:0px;   top:22px; width:34px;  height:24px;"></span>
+      <span class="puff" style="left:22px;  top:6px;  width:44px;  height:34px;"></span>
+      <span class="puff" style="left:54px;  top:0px;  width:52px;  height:40px;"></span>
+      <span class="puff" style="left:96px;  top:14px; width:36px;  height:28px;"></span>
+      <span class="puff" style="left:14px;  top:32px; width:104px; height:26px;"></span>
+    </div>
+    <div class="cloud cloud2">
+      <span class="puff" style="left:0px;  top:16px; width:26px; height:18px;"></span>
+      <span class="puff" style="left:16px; top:4px;  width:34px; height:26px;"></span>
+      <span class="puff" style="left:40px; top:0px;  width:40px; height:30px;"></span>
+      <span class="puff" style="left:70px; top:10px; width:28px; height:22px;"></span>
+      <span class="puff" style="left:10px; top:24px; width:80px; height:20px;"></span>
+    </div>
+    <div class="cloud cloud3">
+      <span class="puff" style="left:0px;   top:26px; width:38px;  height:26px;"></span>
+      <span class="puff" style="left:26px;  top:8px;  width:48px;  height:36px;"></span>
+      <span class="puff" style="left:62px;  top:0px;  width:58px;  height:44px;"></span>
+      <span class="puff" style="left:108px; top:16px; width:40px;  height:30px;"></span>
+      <span class="puff" style="left:16px;  top:36px; width:116px; height:28px;"></span>
+    </div>
+
+    <div class="ridge ridge-1"></div>
+
+    <div class="rainbow"><div class="rainbow-sheen"></div></div>
+
+    <div class="ridge ridge-2"></div>
+    <div class="ridge ridge-3"></div>
+
+    <div id="birds"></div>
+
+    <div class="meadow"></div>
+
+    <div class="bike">
+      <div class="bike-shadow"></div>
+      <svg viewBox="0 0 100 60" class="bike-svg">
+        <circle class="wheel-tire" cx="18" cy="44" r="13"/>
+        <circle class="wheel-rim"  cx="18" cy="44" r="7"/>
+        <circle class="wheel-tire" cx="74" cy="44" r="13"/>
+        <circle class="wheel-rim"  cx="74" cy="44" r="7"/>
+        <path class="frame" d="M18,44 L46,20 L64,20 L74,44 M50,44 L18,44 M46,20 L50,44"/>
+        <path class="frame" d="M42,17 L50,17"/>
+        <path class="frame" d="M64,20 L64,12"/>
+        <path class="basket" d="M56,12 L72,12 L70,20 L58,20 Z"/>
+        <circle class="basket-flower f1" cx="58" cy="9" r="2.3"/>
+        <circle class="basket-flower f2" cx="64" cy="6.5" r="2.6"/>
+        <circle class="basket-flower f3" cx="70" cy="9" r="2.2"/>
+      </svg>
+    </div>
+
+    <div id="blades"></div>
+    <div id="flowers"></div>
+    <div id="butterflies"></div>
+  </div>
+
+  <main class="app">
+    <header>
+      <div class="title-card">
+        <h1>Ask Mahima</h1>
+        <p class="tagline">her stories, her heart, her world</p>
+      </div>
+    </header>
+
+    <div class="chat-card">
+      <div id="messages">
+        <div class="empty-hint">
+          <span class="bloom-mark" style="--petal:#f0913f"></span>
+          Say hello — ask what she's building, what she loves, or what she's been writing lately.
+        </div>
+      </div>
+      <form id="chat-form">
+        <input id="input" type="text" placeholder="What does Mahima love?" autocomplete="off" required />
+        <button type="submit" id="send-btn">Send</button>
+      </form>
+    </div>
+  </main>
+
+  <button id="sound-toggle" class="sound-toggle" type="button" aria-pressed="false">
+    <span class="eq-bars"><span></span><span></span><span></span></span>
+    <span class="sound-label">Summer sounds</span>
+  </button>
+
+<script>
+  // ---- decorate the scene: real CSS flowers + grass, swaying in the wind ----
+  const FLOWER_TYPES = ['pink', 'blush', 'lav', 'peach', 'cream', 'sky'];
+
+  const flowersEl = document.getElementById('flowers');
+  const flowerCount = 13;
+  for (let i = 0; i < flowerCount; i++) {
+    const el = document.createElement('div');
+    el.className = 'flower ' + FLOWER_TYPES[i % FLOWER_TYPES.length];
+    const left = (i / flowerCount) * 100 + (Math.random() * 5 - 2.5);
+    el.style.left = left + '%';
+    el.style.setProperty('--h', (48 + Math.random() * 26) + 'px');
+    el.style.setProperty('--dur', (3 + Math.random() * 2.4) + 's');
+    el.style.setProperty('--delay', (-Math.random() * 5) + 's');
+
+    const stem = document.createElement('div');
+    stem.className = 'stem';
+    const leafL = document.createElement('div');
+    leafL.className = 'leaf l';
+    const leafR = document.createElement('div');
+    leafR.className = 'leaf r';
+    const bloom = document.createElement('div');
+    bloom.className = 'bloom';
+
+    el.append(stem, leafL, leafR, bloom);
+    flowersEl.appendChild(el);
+  }
+
+  const bladesEl = document.getElementById('blades');
+  const bladeCount = 46;
+  const bladeGreens = ['#6e9a4f', '#5c8642', '#82a860'];
+  for (let i = 0; i < bladeCount; i++) {
+    const el = document.createElement('div');
+    el.className = 'blade';
+    el.style.left = (Math.random() * 100) + '%';
+    el.style.setProperty('--h', (12 + Math.random() * 18) + 'px');
+    el.style.setProperty('--c', bladeGreens[i % bladeGreens.length]);
+    el.style.setProperty('--dur', (2 + Math.random() * 1.6) + 's');
+    el.style.setProperty('--delay', (-Math.random() * 3) + 's');
+    bladesEl.appendChild(el);
+  }
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const BUTTERFLY_COLORS = ['#ec5f97', '#a377d6', '#f0913f', '#4fa8d8', '#f6a9bb'];
+
+  const butterfliesEl = document.getElementById('butterflies');
+  const butterflyCount = 6;
+  for (let i = 0; i < butterflyCount; i++) {
+    const wrap = document.createElement('div');
+    wrap.className = 'butterfly-particle';
+    wrap.style.left = (6 + Math.random() * 88) + '%';
+    wrap.style.setProperty('--dur', (13 + Math.random() * 7) + 's');
+    wrap.style.setProperty('--delay', (-Math.random() * 18) + 's');
+
+    const color = BUTTERFLY_COLORS[i % BUTTERFLY_COLORS.length];
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 28 16');
+    svg.setAttribute('class', 'butterfly-svg');
+    svg.innerHTML =
+      '<g class="wing wing-left">' +
+        '<ellipse cx="8" cy="6" rx="7" ry="5.5" fill="' + color + '"/>' +
+        '<ellipse cx="9" cy="12" rx="5" ry="3.5" fill="' + color + '" opacity="0.8"/>' +
+      '</g>' +
+      '<g class="wing wing-right">' +
+        '<ellipse cx="20" cy="6" rx="7" ry="5.5" fill="' + color + '"/>' +
+        '<ellipse cx="19" cy="12" rx="5" ry="3.5" fill="' + color + '" opacity="0.8"/>' +
+      '</g>' +
+      '<line x1="14" y1="2" x2="14" y2="14" stroke="#4a3b2e" stroke-width="1.4" stroke-linecap="round"/>';
+
+    wrap.appendChild(svg);
+    butterfliesEl.appendChild(wrap);
+  }
+
+  // ==========================================================
+  // Ambient summer soundscape — synthesized with the Web Audio API.
+  // No audio files: wind and water are filtered noise, crickets and bird
+  // chirps are short scheduled oscillator bursts. Browsers block audio
+  // until a user gesture, so nothing plays until the toggle button is
+  // clicked (see the click handler near the bottom of this script).
+  // ==========================================================
+  let audioCtx = null;
+  let ambientActive = false;
+  let windNodes = null;
+  let waterNodes = null;
+  let cricketTimer = null;
+
+  function makeNoiseBuffer(ctx, seconds, kind) {
+    const length = Math.floor(ctx.sampleRate * seconds);
+    const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    if (kind === 'brown') {
+      // leaky integrator over white noise -> low, breathy rumble (good base for wind)
+      let last = 0;
+      for (let i = 0; i < length; i++) {
+        const white = Math.random() * 2 - 1;
+        last = (last + 0.02 * white) / 1.02;
+        data[i] = last * 3.2;
+      }
+    } else {
+      for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+    }
+    return buffer;
+  }
+
+  function startWind(ctx) {
+    const src = ctx.createBufferSource();
+    src.buffer = makeNoiseBuffer(ctx, 4, 'brown');
+    src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 700;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.16;
+    // slow LFO on the cutoff so the wind swells and eases rather than droning flat
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.06;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 180;
+    lfo.connect(lfoGain).connect(filter.frequency);
+    src.connect(filter).connect(gain).connect(ctx.destination);
+    src.start();
+    lfo.start();
+    return { src, lfo, gain };
+  }
+
+  function startWater(ctx) {
+    const src = ctx.createBufferSource();
+    src.buffer = makeNoiseBuffer(ctx, 4, 'white');
+    src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1400;
+    filter.Q.value = 0.5;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.09;
+    // gentle amplitude wobble for a babbling-stream feel instead of a flat hiss
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.18;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0.009;
+    lfo.connect(lfoGain).connect(gain.gain);
+    src.connect(filter).connect(gain).connect(ctx.destination);
+    src.start();
+    lfo.start();
+    return { src, lfo, gain };
+  }
+
+  function chirpCricket(ctx) {
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.value = 3800 + Math.random() * 900;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.05, now + 0.01);
+    gain.gain.linearRampToValueAtTime(0, now + 0.06);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.07);
+  }
+
+  function scheduleCrickets(ctx) {
+    // a little burst of chirps, then a pause — reads as a chorus, not a metronome
+    const burstSize = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < burstSize; i++) {
+      setTimeout(() => { if (ambientActive) chirpCricket(ctx); }, i * 110);
+    }
+    cricketTimer = setTimeout(() => { if (ambientActive) scheduleCrickets(ctx); }, 900 + Math.random() * 1800);
+  }
+
+  function chirpBird(ctx) {
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    const startFreq = 2200 + Math.random() * 600;
+    osc.frequency.setValueAtTime(startFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(startFreq * 1.5, now + 0.08);
+    osc.frequency.exponentialRampToValueAtTime(startFreq * 0.9, now + 0.16);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.06, now + 0.02);
+    gain.gain.linearRampToValueAtTime(0, now + 0.2);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.22);
+  }
+
+  function startAmbience() {
+    try {
+      if (!audioCtx) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return; // Web Audio unsupported — fail quietly, chat still works fine
+        audioCtx = new Ctx();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      windNodes = startWind(audioCtx);
+      waterNodes = startWater(audioCtx);
+      ambientActive = true;
+      scheduleCrickets(audioCtx);
+    } catch (e) {
+      // ambient sound is a nice-to-have, never let it break the page
+    }
+  }
+
+  function stopAmbience() {
+    ambientActive = false;
+    clearTimeout(cricketTimer);
+    [windNodes, waterNodes].forEach((nodes) => {
+      if (!nodes) return;
+      try { nodes.src.stop(); } catch (e) { /* already stopped */ }
+      try { nodes.lfo.stop(); } catch (e) { /* already stopped */ }
+    });
+    windNodes = null;
+    waterNodes = null;
+  }
+
+  const soundToggle = document.getElementById('sound-toggle');
+  const soundLabel = soundToggle.querySelector('.sound-label');
+
+  function setSoundUI(isPlaying) {
+    soundToggle.classList.toggle('playing', isPlaying);
+    soundToggle.setAttribute('aria-pressed', String(isPlaying));
+    soundLabel.textContent = isPlaying ? 'Sounds on' : 'Summer sounds';
+  }
+
+  // ---- sound on by default ----
+  // Browsers refuse to let audio actually make sound until the page has had
+  // a real user gesture — no script can bypass that, and it resets on every
+  // reload since "user activation" doesn't persist across navigations. So:
+  // show the UI as "on" and build the audio graph immediately (it starts
+  // silently suspended, ambientActive = true even though nothing is audible
+  // yet).
+  //
+  // The bug this fixes: with ambientActive already true from that auto-start,
+  // the very first click ANYWHERE — including on the sound button itself —
+  // must be treated as "the gesture that unlocks audio", never as "toggle
+  // it off". The previous version only special-cased clicks elsewhere on
+  // the page; a click directly on the button still fell into the normal
+  // toggle logic, saw ambientActive === true, and stopped it right as it
+  // was supposed to start — which is exactly "the button says on but
+  // nothing plays, and clicking it doesn't help." hasGestured below tracks
+  // whether a real unlock has happened yet, and gates ALL first-clicks
+  // (button included) through unlockAudio() instead of the toggle.
+  let hasGestured = false;
+
+  function unlockAudio() {
+    hasGestured = true;
+    if (!ambientActive) {
+      startAmbience();
+      setSoundUI(true);
+      return;
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  soundToggle.addEventListener('click', () => {
+    if (!hasGestured) {
+      unlockAudio(); // first-ever interaction: always unlock, never toggle off
+      return;
+    }
+    if (ambientActive) {
+      stopAmbience();
+      setSoundUI(false);
+    } else {
+      startAmbience();
+      setSoundUI(true);
+    }
+  });
+
+  setSoundUI(true);
+  startAmbience();
+
+  function resumeOnFirstGesture(e) {
+    if (e.target.closest && e.target.closest('#sound-toggle')) return; // the button's own handler covers this
+    unlockAudio();
+    document.removeEventListener('click', resumeOnFirstGesture);
+    document.removeEventListener('keydown', resumeOnFirstGesture);
+    document.removeEventListener('touchstart', resumeOnFirstGesture);
+  }
+  document.addEventListener('click', resumeOnFirstGesture);
+  document.addEventListener('keydown', resumeOnFirstGesture);
+  document.addEventListener('touchstart', resumeOnFirstGesture);
+
+  // ---- birds: occasional, not constant — spawn one, let it fly off, repeat on a random delay ----
+  const birdsEl = document.getElementById('birds');
+
+  function spawnBird() {
+    const wrap = document.createElement('div');
+    wrap.className = 'bird-wrap';
+    const rtl = Math.random() < 0.5;
+    if (rtl) wrap.classList.add('rtl');
+
+    const top = 8 + Math.random() * 24; // stays in the upper sky, above the mountains
+    const dur = 13 + Math.random() * 9;
+    wrap.style.top = top + '%';
+    wrap.style.animationDuration = dur + 's';
+
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 12');
+    svg.setAttribute('class', 'bird-flap');
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', 'M0,8 Q6,0 12,8 Q18,0 24,8');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', '#5a4636');
+    path.setAttribute('stroke-width', '1.6');
+    path.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(path);
+
+    wrap.appendChild(svg);
+    birdsEl.appendChild(wrap);
+    if (ambientActive && audioCtx) chirpBird(audioCtx); // pair the visual with a little chirp
+    setTimeout(() => wrap.remove(), dur * 1000 + 300);
+  }
+
+  function scheduleBird() {
+    const delay = 12000 + Math.random() * 28000; // occasional, not frequent
+    setTimeout(() => { spawnBird(); scheduleBird(); }, delay);
+  }
+  setTimeout(spawnBird, 2500); // one shortly after load, so it's not empty for ages
+  scheduleBird();
+
+  // ---- chat logic ----
+  const form = document.getElementById('chat-form');
+  const input = document.getElementById('input');
+  const sendBtn = document.getElementById('send-btn');
+  const messages = document.getElementById('messages');
+
+  function clearHint() {
+    const hint = messages.querySelector('.empty-hint');
+    if (hint) hint.remove();
+  }
+
+  function addUserRow(text) {
+    clearHint();
+    const row = document.createElement('div');
+    row.className = 'row user';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    messages.appendChild(row);
+    messages.scrollTop = messages.scrollHeight;
+    return bubble;
+  }
+
+  function addAssistantRow(petalColor) {
+    clearHint();
+    const row = document.createElement('div');
+    row.className = 'row assistant';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    const mark = document.createElement('span');
+    mark.className = 'bloom-mark';
+    mark.style.setProperty('--petal', petalColor || '#f0a7c4');
+
+    const content = document.createElement('div');
+    content.className = 'bubble-content';
+
+    bubble.append(mark, content);
+    row.appendChild(bubble);
+    messages.appendChild(row);
+    messages.scrollTop = messages.scrollHeight;
+    return { row, bubble, content };
+  }
+
+  const PETAL_COLORS = ['#ec5f97', '#a377d6', '#f0913f', '#4fa8d8'];
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const question = input.value.trim();
+    if (!question) return;
+
+    addUserRow(question);
+    input.value = '';
+    sendBtn.disabled = true;
+
+    const typing = addAssistantRow();
+    typing.content.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
+
+    try {
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: question }),
+      });
+
+      typing.row.remove();
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const { row, content } = addAssistantRow();
+        row.querySelector('.bubble').classList.add('error-bubble');
+        content.textContent = err.detail && typeof err.detail === 'string'
+          ? err.detail
+          : "Something went sideways — try again?";
+        return;
+      }
+
+      const data = await res.json();
+      const petal = PETAL_COLORS[Math.floor(Math.random() * PETAL_COLORS.length)];
+      const { content } = addAssistantRow(petal);
+      content.textContent = data.answer;
+
+      if (data.sources && data.sources.length) {
+        const sourcesWrap = document.createElement('div');
+        sourcesWrap.className = 'sources';
+        data.sources.forEach((s) => {
+          const tag = document.createElement('span');
+          tag.className = 'source-tag';
+          tag.textContent = s;
+          sourcesWrap.appendChild(tag);
+        });
+        content.appendChild(sourcesWrap);
+      } else {
+        const none = document.createElement('div');
+        none.className = 'no-sources';
+        none.textContent = 'no sources for this one';
+        content.appendChild(none);
+      }
+      messages.scrollTop = messages.scrollHeight;
+    } catch (err) {
+      typing.row.remove();
+      const { row, content } = addAssistantRow();
+      row.querySelector('.bubble').classList.add('error-bubble');
+      content.textContent = "Couldn't reach the server — is it running?";
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  });
+</script>
+</body>
+</html>

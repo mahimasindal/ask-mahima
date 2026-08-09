@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: ask-mahima
+    runtime: python
+    plan: free
+    # Ingestion runs as part of every build/deploy, not as a one-off manual
+    # step. Render's free-tier disk isn't guaranteed to persist across
+    # deploys, so rebuilding the vector index at build time (from the
+    # data/*.md files committed to the repo) means the app never starts
+    # with a stale or missing knowledge base.
+    buildCommand: "pip install -r requirements.txt && python scripts/ingest.py"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: OPENROUTER_API_KEY
+        sync: false  # set manually in the Render dashboard — never committed

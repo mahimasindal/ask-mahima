@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ask Mahima</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<!-- Pinyon Script stands in for "Verandah Reverie" (the requested font): same
-     flowing-copperplate-calligraphy family — connected cursive, fine entry
-     strokes, formal/romantic feel — but free for any use on Google Fonts.
-     Verandah Reverie itself is personal-use-only (a commercial license
-     would need buying from its designer), which doesn't fit a page linked
-     from a public LinkedIn post. -->
-<link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Sacramento stands in for "Believe Script" (the requested font): same
+     sweet, friendly, lightweight connected-cursive handwritten style, but
+     free for any use on Google Fonts. Believe Script itself is
+     personal-use-only (a commercial license would need buying via
+     scratchones.com), which doesn't fit a page linked from a public
+     LinkedIn post. -->
+<link href="https://fonts.googleapis.com/css2?family=Sacramento&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --cream: #fff8ec;
@@ -432,16 +432,18 @@
     box-shadow: 0 16px 36px rgba(50, 40, 20, 0.16), inset 0 1px 0 rgba(255,255,255,0.7);
   }
   header h1 {
-    /* Pinyon Script only ships one weight/style — it's a single flowing
+    /* Sacramento only ships one weight/style — it's a single flowing
        cursive face, so no italic/bold to set. Sized up from the old
-       Playfair Display italic (2.9rem) because a connected script's fine
+       Playfair Display italic (2.9rem) since a connected script's fine
        strokes and smaller x-height read visually lighter/smaller at the
-       same rem value. */
-    font-family: 'Pinyon Script', cursive;
+       same rem value. letter-spacing stays at 0 (rather than the old
+       serif's 0.3px) — adding gaps between letters that are drawn to
+       visually touch would break the connected-cursive look. */
+    font-family: 'Sacramento', cursive;
     font-weight: 400;
-    font-size: 3.6rem;
+    font-size: 3.8rem;
     margin: 0;
-    letter-spacing: 0.5px;
+    letter-spacing: 0;
     background: linear-gradient(120deg, #4a3a72, #7a5aa8);
     -webkit-background-clip: text;
     background-clip: text;
@@ -683,7 +685,7 @@
   @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 14px; } }
 
   @media (max-width: 480px) {
-    header h1 { font-size: 3rem; }
+    header h1 { font-size: 3.1rem; }
     .app { padding-bottom: 160px; }
     .sound-toggle .sound-label { display: none; }
   }

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ask Mahima</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;1,500;1,600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,600;1,700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --cream: #fff8ec;
@@ -414,13 +414,13 @@
     box-shadow: 0 16px 36px rgba(50, 40, 20, 0.16), inset 0 1px 0 rgba(255,255,255,0.7);
   }
   header h1 {
-    font-family: 'Fraunces', serif;
+    font-family: 'Playfair Display', serif;
     font-style: italic;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 2.9rem;
     margin: 0;
-    letter-spacing: 0.2px;
-    background: linear-gradient(120deg, #7a2415, #9c3420);
+    letter-spacing: 0.3px;
+    background: linear-gradient(120deg, #4a3a72, #7a5aa8);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -431,7 +431,7 @@
     letter-spacing: 3px;
     text-transform: uppercase;
     font-weight: 600;
-    color: #6b5340;
+    color: #5f5470;
     position: relative;
     padding-top: 10px;
   }
@@ -442,7 +442,7 @@
     width: 28px;
     height: 1.5px;
     transform: translateX(-50%);
-    background: linear-gradient(90deg, #c85038, #d9a35a);
+    background: linear-gradient(90deg, #4a3a72, #9c7fc4);
   }
 
   .chat-card {
@@ -474,7 +474,7 @@
     top: 0; left: 22px; right: 22px;
     height: 2.5px;
     border-radius: 0 0 3px 3px;
-    background: linear-gradient(90deg, #c85038, #d9a35a);
+    background: linear-gradient(90deg, #4a3a72, #9c7fc4);
     opacity: 0.7;
   }
 
@@ -831,6 +831,7 @@
   let windNodes = null;
   let waterNodes = null;
   let cricketTimer = null;
+  let bellTimer = null;
 
   function makeNoiseBuffer(ctx, seconds, kind) {
     const length = Math.floor(ctx.sampleRate * seconds);
@@ -868,29 +869,51 @@
     src.connect(filter).connect(gain).connect(ctx.destination);
     src.start();
     lfo.start();
-    return { src, lfo, gain };
+    return { sources: [src], lfo, gain };
   }
 
+  /*
+   * A river, not a kettle hiss: real flowing water is broadband — a full,
+   * low rushing body plus a faint high shimmer where light/surface texture
+   * sits — not one narrow bandpass band (which read as tonal hiss, closer
+   * to static than water). Two independent noise layers, both kept quiet.
+   */
   function startWater(ctx) {
-    const src = ctx.createBufferSource();
-    src.buffer = makeNoiseBuffer(ctx, 4, 'white');
-    src.loop = true;
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = 1400;
-    filter.Q.value = 0.5;
-    const gain = ctx.createGain();
-    gain.gain.value = 0.09;
-    // gentle amplitude wobble for a babbling-stream feel instead of a flat hiss
+    // layer 1: the low, continuous rush — the "body" of the river
+    const bodySrc = ctx.createBufferSource();
+    bodySrc.buffer = makeNoiseBuffer(ctx, 4, 'white');
+    bodySrc.loop = true;
+    const bodyFilter = ctx.createBiquadFilter();
+    bodyFilter.type = 'lowpass';
+    bodyFilter.frequency.value = 750;
+    bodyFilter.Q.value = 0.3;
+    const bodyGain = ctx.createGain();
+    bodyGain.gain.value = 0.028; // quiet — a presence, not a wash
+
+    // layer 2: a much quieter high shimmer, the sparkle on a moving surface
+    const shimmerSrc = ctx.createBufferSource();
+    shimmerSrc.buffer = makeNoiseBuffer(ctx, 4, 'white');
+    shimmerSrc.loop = true;
+    const shimmerFilter = ctx.createBiquadFilter();
+    shimmerFilter.type = 'bandpass';
+    shimmerFilter.frequency.value = 3200;
+    shimmerFilter.Q.value = 0.6;
+    const shimmerGain = ctx.createGain();
+    shimmerGain.gain.value = 0.008;
+
+    // slow, gentle swell — a river's flow breathes, it doesn't babble
     const lfo = ctx.createOscillator();
-    lfo.frequency.value = 0.18;
+    lfo.frequency.value = 0.09;
     const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 0.009;
-    lfo.connect(lfoGain).connect(gain.gain);
-    src.connect(filter).connect(gain).connect(ctx.destination);
-    src.start();
+    lfoGain.gain.value = 0.007;
+    lfo.connect(lfoGain).connect(bodyGain.gain);
+
+    bodySrc.connect(bodyFilter).connect(bodyGain).connect(ctx.destination);
+    shimmerSrc.connect(shimmerFilter).connect(shimmerGain).connect(ctx.destination);
+    bodySrc.start();
+    shimmerSrc.start();
     lfo.start();
-    return { src, lfo, gain };
+    return { sources: [bodySrc, shimmerSrc], lfo, gain: bodyGain };
   }
 
   function chirpCricket(ctx) {
@@ -933,6 +956,40 @@
     osc.stop(now + 0.22);
   }
 
+  // a little two-tone "ding" — bell-like envelope (fast attack, slow decay)
+  // with a fundamental plus a quiet overtone for a metallic ting, like the
+  // bike parked in the grass got a gentle nudge
+  function ringBell(ctx) {
+    const now = ctx.currentTime;
+    const tones = [
+      { freq: 1568, peak: 0.11, decay: 0.9 },  // fundamental — was too quiet to hear over the mix
+      { freq: 2349, peak: 0.045, decay: 0.6 }, // fifth overtone — the "metal"
+    ];
+    tones.forEach(({ freq, peak, decay }) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(peak, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + decay + 0.05);
+    });
+  }
+
+  function scheduleBell(ctx) {
+    // rare after the first one — a bell on every chorus would be annoying —
+    // but ring it soon after sound starts so it's actually confirmable
+    // rather than waiting up to 55s to find out if it works
+    const delay = bellTimer === null ? 4000 : 25000 + Math.random() * 30000;
+    bellTimer = setTimeout(() => {
+      if (ambientActive) ringBell(ctx);
+      scheduleBell(ctx);
+    }, delay);
+  }
+
   function startAmbience() {
     try {
       if (!audioCtx) {
@@ -945,6 +1002,7 @@
       waterNodes = startWater(audioCtx);
       ambientActive = true;
       scheduleCrickets(audioCtx);
+      scheduleBell(audioCtx);
     } catch (e) {
       // ambient sound is a nice-to-have, never let it break the page
     }
@@ -953,9 +1011,11 @@
   function stopAmbience() {
     ambientActive = false;
     clearTimeout(cricketTimer);
+    clearTimeout(bellTimer);
+    bellTimer = null; // so the next startAmbience() rings the confirmation bell quickly again
     [windNodes, waterNodes].forEach((nodes) => {
       if (!nodes) return;
-      try { nodes.src.stop(); } catch (e) { /* already stopped */ }
+      nodes.sources.forEach((s) => { try { s.stop(); } catch (e) { /* already stopped */ } });
       try { nodes.lfo.stop(); } catch (e) { /* already stopped */ }
     });
     windNodes = null;

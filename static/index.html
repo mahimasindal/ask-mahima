@@ -5,7 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ask Mahima</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,600;1,700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Pinyon Script stands in for "Verandah Reverie" (the requested font): same
+     flowing-copperplate-calligraphy family — connected cursive, fine entry
+     strokes, formal/romantic feel — but free for any use on Google Fonts.
+     Verandah Reverie itself is personal-use-only (a commercial license
+     would need buying from its designer), which doesn't fit a page linked
+     from a public LinkedIn post. -->
+<link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --cream: #fff8ec;
@@ -14,6 +20,18 @@
     --coral: #c85038;
     --coral-deep: #a23420;
     --leaf: #3f7a30;
+    /* user/assistant bubble colors — kept independent of --coral/--leaf
+       (used elsewhere for the sun/flowers/meadow, which is fine) because a
+       straight red-vs-green pairing for the two message roles reads as a
+       harsh, slightly alarming clash against the pastel scene, and is a
+       rough combination for red-green color-blind readers besides. Plum
+       echoes the title's own gradient (ties the chat back to the brand
+       color); warm tan keeps the assistant side neutral instead of leaning
+       on another saturated hue. */
+    --plum: #4a3a72;
+    --plum-light: #7a5aa8;
+    --tan-bubble: #f5e9d2;
+    --tan-border: #ecdcb8;
   }
 
   * { box-sizing: border-box; }
@@ -414,12 +432,16 @@
     box-shadow: 0 16px 36px rgba(50, 40, 20, 0.16), inset 0 1px 0 rgba(255,255,255,0.7);
   }
   header h1 {
-    font-family: 'Playfair Display', serif;
-    font-style: italic;
-    font-weight: 700;
-    font-size: 2.9rem;
+    /* Pinyon Script only ships one weight/style — it's a single flowing
+       cursive face, so no italic/bold to set. Sized up from the old
+       Playfair Display italic (2.9rem) because a connected script's fine
+       strokes and smaller x-height read visually lighter/smaller at the
+       same rem value. */
+    font-family: 'Pinyon Script', cursive;
+    font-weight: 400;
+    font-size: 3.6rem;
     margin: 0;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.5px;
     background: linear-gradient(120deg, #4a3a72, #7a5aa8);
     -webkit-background-clip: text;
     background-clip: text;
@@ -518,22 +540,30 @@
   }
 
   .row.user .bubble {
-    background: linear-gradient(160deg, var(--coral), var(--coral-deep));
+    background: linear-gradient(160deg, var(--plum-light), var(--plum));
     color: #fff8f2;
     border-radius: 18px 18px 4px 18px;
-    box-shadow: 0 4px 12px rgba(162, 52, 32, 0.4);
+    box-shadow: 0 4px 12px rgba(74, 58, 114, 0.35);
   }
   .row.assistant .bubble {
-    background: linear-gradient(160deg, #f2f8ea, #e5f0d8);
-    border: 1px solid #cfe3ba;
+    background: linear-gradient(160deg, var(--cream), var(--tan-bubble));
+    border: 1px solid var(--tan-border);
     border-radius: 4px 18px 18px 18px;
-    box-shadow: 0 4px 10px rgba(90, 110, 50, 0.12);
+    box-shadow: 0 4px 10px rgba(120, 90, 40, 0.12);
     display: flex;
     gap: 8px;
     align-items: flex-start;
   }
   .row.assistant .bubble .bloom-mark { margin-top: 2px; }
   .row.assistant .bubble .bubble-content { flex: 1; min-width: 0; }
+  /* reset default browser spacing on the markdown-lite output (p/ul/li) so
+     rendered replies sit as tightly as the old plain-text ones did */
+  .bubble-content p { margin: 0 0 8px; }
+  .bubble-content ul { margin: 4px 0 8px; padding-left: 20px; }
+  .bubble-content li { margin-bottom: 4px; }
+  .bubble-content p:last-child,
+  .bubble-content ul:last-child { margin-bottom: 0; }
+  .bubble-content strong { font-weight: 700; }
 
   .sources {
     margin-top: 8px;
@@ -586,7 +616,7 @@
     outline: none;
     transition: border-color 0.2s;
   }
-  input:focus { border-color: var(--coral-deep); }
+  input:focus { border-color: var(--plum); }
 
   button {
     padding: 0 22px;
@@ -653,7 +683,7 @@
   @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 14px; } }
 
   @media (max-width: 480px) {
-    header h1 { font-size: 2.4rem; }
+    header h1 { font-size: 3rem; }
     .app { padding-bottom: 160px; }
     .sound-toggle .sound-label { display: none; }
   }
@@ -1168,11 +1198,56 @@
     bubble.append(mark, content);
     row.appendChild(bubble);
     messages.appendChild(row);
-    messages.scrollTop = messages.scrollHeight;
+    // Scroll so the TOP of the new reply lands at the top of the visible
+    // pane, not scrollTop = scrollHeight (which jumps to the very bottom
+    // of the reply — for anything longer than the 30vh message pane, that
+    // hides the start of the answer and forces a manual scroll back up to
+    // read it from the beginning). The row is still empty at this point
+    // (content gets filled in after), so it grows downward from an
+    // already-top-aligned position — exactly the natural top-to-bottom
+    // reading order.
+    row.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return { row, bubble, content };
   }
 
   const PETAL_COLORS = ['#ec5f97', '#a377d6', '#f0913f', '#4fa8d8'];
+
+  // ---- tiny markdown-lite renderer for LLM replies ----
+  // The model's answers come back as plain text but often carry basic
+  // markdown (**bold**, "- " bullet lists) — content.textContent rendered
+  // that literally (visible asterisks, visible dashes), which is what was
+  // showing up as "formatting issues". This renders just that small,
+  // known-safe subset: escape everything first (so nothing in the model's
+  // output can inject HTML), then re-introduce **bold** and "- "/"* "
+  // bullet lists, with blank-line-separated blocks as paragraphs and
+  // single newlines within a block as line breaks.
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderMarkdownLite(text) {
+    const blocks = escapeHtml(text).split(/\n\s*\n/);
+    return blocks
+      .map((block) => {
+        const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+        if (lines.length === 0) return '';
+        const isList = lines.every((l) => /^[-*]\s+/.test(l));
+        if (isList) {
+          const items = lines
+            .map((l) => `<li>${boldify(l.replace(/^[-*]\s+/, ''))}</li>`)
+            .join('');
+          return `<ul>${items}</ul>`;
+        }
+        return `<p>${lines.map(boldify).join('<br>')}</p>`;
+      })
+      .join('');
+  }
+
+  function boldify(str) {
+    return str.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1208,7 +1283,7 @@
       const data = await res.json();
       const petal = PETAL_COLORS[Math.floor(Math.random() * PETAL_COLORS.length)];
       const { content } = addAssistantRow(petal);
-      content.textContent = data.answer;
+      content.innerHTML = renderMarkdownLite(data.answer);
 
       if (data.sources && data.sources.length) {
         const sourcesWrap = document.createElement('div');
@@ -1226,7 +1301,10 @@
         none.textContent = 'no sources for this one';
         content.appendChild(none);
       }
-      messages.scrollTop = messages.scrollHeight;
+      // No re-scroll here on purpose — addAssistantRow() already aligned
+      // this reply's top edge into view; jumping to scrollHeight now would
+      // undo that and reintroduce the "have to scroll up to read it"
+      // problem for any answer (plus its sources) taller than the pane.
     } catch (err) {
       typing.row.remove();
       const { row, content } = addAssistantRow();

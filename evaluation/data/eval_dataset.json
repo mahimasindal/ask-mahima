@@ -4,46 +4,116 @@
     {
       "query": "What does Mahima currently do for work?",
       "relevant_sources": ["career.md"],
+      "category": "simple_factual",
       "notes": "Should hit the Current Role section."
     },
     {
       "query": "What are Mahima's technical skills?",
       "relevant_sources": ["career.md"],
+      "category": "simple_factual",
       "notes": "Should hit the Skills section."
     },
     {
       "query": "What has Mahima worked on before her current role?",
       "relevant_sources": ["career.md"],
+      "category": "simple_factual",
       "notes": "Should hit Work History."
     },
     {
       "query": "What are Mahima's hobbies outside of work?",
-      "relevant_sources": ["interests.md"]
+      "relevant_sources": ["interests.md"],
+      "category": "simple_factual"
     },
     {
       "query": "What topics does Mahima enjoy learning about?",
-      "relevant_sources": ["interests.md"]
+      "relevant_sources": ["interests.md"],
+      "category": "simple_factual"
     },
     {
       "query": "What is the Ask Mahima project and how does it work?",
       "relevant_sources": ["projects.md"],
+      "category": "simple_factual",
       "notes": "This is a self-referential question about this very RAG app — good edge case."
     },
     {
       "query": "Where can I find Mahima's GitHub or LinkedIn?",
-      "relevant_sources": ["links.md"]
+      "relevant_sources": ["links.md"],
+      "category": "simple_factual"
     },
     {
       "query": "How would you describe Mahima's personality?",
-      "relevant_sources": ["about_me.md"]
+      "relevant_sources": ["about_me.md"],
+      "category": "simple_factual"
     },
     {
       "query": "Tell me a fun fact about Mahima.",
-      "relevant_sources": ["about_me.md"]
+      "relevant_sources": ["about_me.md"],
+      "category": "simple_factual"
     },
     {
       "query": "What has Mahima written about, and what are her strongest opinions?",
-      "relevant_sources": ["writing.md"]
+      "relevant_sources": ["writing.md"],
+      "category": "simple_factual"
+    },
+    {
+      "query": "Why should someone hire Mahima?",
+      "relevant_sources": ["career.md", "about_me.md"],
+      "category": "multi_document",
+      "notes": "Needs synthesis: skills/experience from career.md plus how she actually works/what she's like from about_me.md — this was the exact question that iteration 1's over-literal anti-hallucination prompt used to refuse outright."
+    },
+    {
+      "query": "What does Mahima do both professionally and creatively?",
+      "relevant_sources": ["career.md", "writing.md"],
+      "category": "multi_document",
+      "notes": "Two genuinely separate domains (engineering vs. poetry/writing) that only live in two different files — a good test that reranking/top_k=3 doesn't starve one domain to fit the other."
+    },
+    {
+      "query": "What's Mahima's favourite thing?",
+      "relevant_sources": ["about_me.md", "interests.md"],
+      "category": "ambiguous",
+      "notes": "Favourite *what*? Deliberately underspecified — the original iteration-1 bug had the model refusing this outright instead of answering from whatever context is most relevant (Fun Facts, Hobbies, Topics I Love)."
+    },
+    {
+      "query": "Tell me about her work.",
+      "relevant_sources": ["career.md", "writing.md"],
+      "category": "ambiguous",
+      "notes": "\"Work\" is ambiguous between her day job (career.md) and her creative writing (writing.md, 'Articles & Posts'/poems) — either reading is defensible, so this tests whether the system picks one sensibly rather than getting confused."
+    },
+    {
+      "query": "How much of an impact has Mahima made in her current job?",
+      "relevant_sources": ["career.md"],
+      "category": "requires_context",
+      "notes": "No single line answers this — needs aggregating multiple Work History bullets (90% incident reduction, ~20x lead-filtering speedup, $150/month savings, 4M+ daily emails) into one picture, not just chunk retrieval."
+    },
+    {
+      "query": "What kind of engineer is Mahima, based on how she approaches problems?",
+      "relevant_sources": ["career.md", "about_me.md"],
+      "category": "requires_context",
+      "notes": "Needs combining Current Role's stated approach ('owning products end to end', 'solving complex engineering challenges') with Personality & Values' framing of how she thinks about problem-solving — an inference, not a lookup."
+    },
+    {
+      "query": "What are Mahima's philosophies on life?",
+      "relevant_sources": [],
+      "category": "no_answer",
+      "notes": "writing.md's 'Notable Opinions or Philosophies' section is literally just \"Will add this later\" — there is genuinely no content here yet. Correct behavior: retrieval may still return low-confidence chunks (no similarity threshold exists — see README known limitation #4), but the final answer should say it doesn't know, not fabricate philosophies from the poems. NOTE: Recall@K can't check this (see report.py) — it's excluded from the aggregate; verify by reading the actual /chat answer."
+    },
+    {
+      "query": "What is Mahima's home address and phone number?",
+      "relevant_sources": [],
+      "category": "no_answer",
+      "notes": "Never present in any document — this exact question was iteration 1's sanity check that the fixes didn't reopen hallucination risk. Same Recall@K caveat as above: excluded from the aggregate, verify against the real answer."
+    },
+    {
+      "query": "How many total years of professional experience does Mahima have?",
+      "relevant_sources": ["career.md"],
+      "category": "conflicting_or_old_info",
+      "notes": "HONEST CAVEAT: there is no actual conflict in the data today — Current Role's stated '6 years' is roughly consistent with what's computable from Work History's dates (Accenture Jan 2021 + Saleshandy Sept 2022-present). Included anyway as an early-warning case: if the 'X years' summary line is ever left stale while Work History gains new entries, this is the question that would catch the drift. Don't read a good score here as 'this project has conflicting-info handling nailed down' — it's untested territory."
+    },
+    {
+      "query": "Does Mahima still work at Accenture?",
+      "relevant_sources": ["career.md"],
+      "category": "conflicting_or_old_info",
+      "notes": "Tests that Accenture (Jan 2021 - Sept 2022, explicitly not her current role) doesn't get confused with Saleshandy (Sept 2022 - Present) just because both appear close together in the same Work History chunk. Correct answer is 'no, that was her role before Saleshandy.'"
     }
   ]
 }

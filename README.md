@@ -142,6 +142,33 @@ The correct source now ranks #1 for all 10 eval queries — including questions 
 
 **Trade-offs, explicitly:** one extra LLM round-trip per `/chat` request — added latency (the rerank call blocks before generation starts) and a small added token cost (short passage previews only, no generation, so cheap relative to the main answer call). This is a deliberate trade: it's what makes shrinking `top_k` for token savings on the *generation* call actually safe, rather than just cheaper and riskier. Also worth flagging: LLM-judged reranking is not perfectly deterministic the way vector similarity is — a 10-query eval run showing 1.000 is strong evidence, not a guarantee that every future query reranks identically.
 
+With Recall@1 fixed, lowered `Settings.top_k` 8 → 3 for real token savings on the generation call — verified `top_k=2` was NOT safe first: it silently drops a genuinely relevant chunk in 3 of 10 eval queries (multi-chunk-per-source cases like "why hire Mahima," where the reranker correctly puts *two* `career.md` chunks in the top ranks), while `top_k=3` does not, in any of them.
+
+### Iteration 5: harder eval categories — real gaps found, not yet fixed
+
+Iterations 1–4 got a 10-question, mostly single-fact eval set to a perfect 1.000. That was a signal the *dataset* had gotten too easy, not that retrieval was solved — so `evaluation/data/eval_dataset.json` was expanded to 20 questions across six categories (`simple_factual`, `multi_document`, `ambiguous`, `requires_context`, `no_answer`, `conflicting_or_old_info`), grounded in real content rather than hypothetical scenarios (e.g. `writing.md`'s "Notable Opinions or Philosophies" section is a genuine, currently-empty `"Will add this later"` — used directly as a `no_answer` case).
+
+This needed one schema fix: `EvalExample.relevant_sources` was required with `min_length=1`, so there was no way to encode "the correct answer is: nothing" for `no_answer` questions. Loosened to allow an empty list — but `metrics.recall_at_k` already treats an empty ground truth as trivially 1.0 ("nothing to miss"), so `evaluation/runner.py` now explicitly excludes no-ground-truth examples from `Mean Recall@K` (tracked via a new `has_ground_truth` flag) rather than let them silently inflate it. `evaluation/report.py` shows these examples' retrieved chunks for manual inspection but never prints a misleading Recall@K line next to them.
+
+**Result, run against the real collection (not simulated) — Recall@1 by category:**
+
+| Category | Avg Recall@1 |
+|---|---|
+| conflicting_or_old_info | 1.00 |
+| simple_factual | 0.80 |
+| requires_context | 0.75 |
+| ambiguous | 0.50 |
+| **multi_document** | **0.25** |
+
+Overall Mean Recall@1 across the 18 scored (non-`no_answer`) examples: **0.722** — down from the old dataset's 1.000, which is the expected/correct outcome of a harder dataset, not a regression.
+
+**Real gaps this surfaced, unfixed as of this iteration:**
+
+1. **Multi-document questions are the weakest category.** "What does Mahima do both professionally and creatively?" missed both correct sources (`career.md` + `writing.md`) at rank #1 — `links.md` won instead — and only surfaced both by rank #5. Structural cause: `LLMReranker` optimizes for single-passage relevance, with no explicit objective for "does this top-K *set* cover every source the question needs." A reranking prompt that reasons about set coverage, not just per-passage relevance, is the fix — not yet implemented.
+2. **A retrieval-candidate-pool miss, not a reranking miss:** "Tell me about her work" scored a flat 0.50 through Recall@8 — `writing.md` never appeared even among the raw `retrieval_candidates=10` vector-similarity hits, so no amount of reranking could recover it. Reranking can only reorder what retrieval already fetched.
+3. **Live evidence of the non-determinism caveat from iteration 4, not just a theoretical one:** "What has Mahima written about, and what are her strongest opinions?" — the exact same question that scored a perfect 1.000 earlier — dropped to Recall@1=0 on this run, with no code changes in between. The LLM reranker's judgment isn't perfectly stable run to run.
+4. **`no_answer` and `conflicting_or_old_info` categories only test retrieval, not the final answer.** Retrieval "correctly" surfaces `career.md` for "Does Mahima still work at Accenture?" and returns only high-distance chunks for "What is Mahima's home address and phone number?" — but this harness never checks whether the generated `/chat` response actually reasons about Accenture being a past role, or actually says "I don't know" rather than confidently answering from a high-distance chunk. A perfect score in these categories is not the same claim as "the chatbot handles this correctly" — verifying that needs a real `/chat` call and human judgment, or a future end-to-end eval extension (not built).
+
 ### Underlying causes, generalized (for the "why," not just the "what")
 
 1. **Small local embedding models struggle to distinguish "mentions a topic" from "actually describes it" — and, more precisely, systematically over-rank very short chunks regardless of topic.** `all-MiniLM-L6-v2` consistently ranked `links.md` content *closer* to nearly every query than the genuinely relevant chunk. Originally attributed (iteration 1) to "GitHub"/"LinkedIn" being lexically career-adjacent — plausible, but incomplete: measured directly in iteration 3, chunk length correlates with similarity-to-arbitrary-query at Pearson r = −0.616 across the whole collection, and the effect held up even after merging `links.md` into one longer, non-URL-dominated chunk. Content-level fixes (merging short sections, rewording) got Recall@3/5/8 to a perfect 1.000 but hit a hard ceiling on Recall@1 (stuck at 0.200 across two different `links.md` rewrites). Fully resolved in iteration 4 by adding an LLM-judged **reranking** pass (`app/services/reranker.py`) after initial retrieval — Recall@1 is now 1.000. This is the embedding model's actual limitation being fixed at the right layer, rather than worked around with more data tweaking.

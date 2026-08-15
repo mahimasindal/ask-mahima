@@ -78,8 +78,15 @@ class EvaluationRunner:
 
     def run(self, dataset: EvalDataset) -> EvalReport:
         results = [self._run_example(example) for example in dataset.examples]
+
+        # Examples with no ground truth (e.g. category='no_answer') get a
+        # trivial recall_at_k of 1.0 from metrics.recall_at_k ("nothing to
+        # miss") — including them in the aggregate would silently inflate
+        # Mean Recall@K without that number meaning anything. Excluded from
+        # the average; still present in `results` for manual inspection.
+        scored = [r for r in results if r.has_ground_truth]
         mean_recall = {
-            k: (sum(r.recall_at_k[k] for r in results) / len(results)) if results else 0.0
+            k: (sum(r.recall_at_k[k] for r in scored) / len(scored)) if scored else 0.0
             for k in self._k_values
         }
         return EvalReport(
@@ -87,6 +94,7 @@ class EvaluationRunner:
             k_values=list(self._k_values),
             results=results,
             mean_recall_at_k=mean_recall,
+            scored_example_count=len(scored),
         )
 
     def _run_example(self, example: EvalExample) -> EvalExampleResult:
@@ -111,6 +119,8 @@ class EvaluationRunner:
         return EvalExampleResult(
             query=example.query,
             relevant_sources=example.relevant_sources,
+            category=example.category,
             retrieved=chunks,
             recall_at_k=recall_scores,
+            has_ground_truth=bool(relevant_ids),
         )

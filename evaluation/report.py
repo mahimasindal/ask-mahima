@@ -30,14 +30,29 @@ def _format_chunk_row(rank: int, chunk: RetrievedChunk) -> str:
 
 
 def _format_example(result: EvalExampleResult) -> str:
-    recall_str = ", ".join(f"R@{k}={v:.2f}" for k, v in sorted(result.recall_at_k.items()))
-    lines = [
-        f"### {result.query}",
-        "",
-        f"**Relevant sources:** {', '.join(result.relevant_sources)}",
-        f"**Recall@K:** {recall_str}",
-        "",
-    ]
+    category_str = f" `[{result.category}]`" if result.category else ""
+    lines = [f"### {result.query}{category_str}", ""]
+
+    if not result.has_ground_truth:
+        # No labeled-relevant source (e.g. category='no_answer') — recall_at_k
+        # is trivially 1.0 here ("nothing to miss"), which would be
+        # misleading to print next to a Recall@K label. This example is also
+        # excluded from the report's aggregate Mean Recall@K for the same
+        # reason. What actually matters for these — did retrieval come back
+        # low-confidence/empty, did the real /chat answer correctly decline —
+        # isn't something this harness checks (it only tests retrieval); read
+        # the distances below and judge for yourself, or check the live
+        # answer separately.
+        lines.append(
+            "**Relevant sources:** _(none — expected no answer; excluded from Mean Recall@K, see above)_"
+        )
+        lines.append("")
+    else:
+        recall_str = ", ".join(f"R@{k}={v:.2f}" for k, v in sorted(result.recall_at_k.items()))
+        lines.append(f"**Relevant sources:** {', '.join(result.relevant_sources)}")
+        lines.append(f"**Recall@K:** {recall_str}")
+        lines.append("")
+
     if not result.retrieved:
         lines.append("_No chunks retrieved._")
         lines.append("")
@@ -52,10 +67,13 @@ def _format_example(result: EvalExampleResult) -> str:
 
 
 def render_markdown(report: EvalReport) -> str:
+    excluded = len(report.results) - report.scored_example_count
+    excluded_note = f" ({excluded} no-ground-truth, excluded from Mean Recall@K)" if excluded else ""
     lines = [
         f"# Retrieval Evaluation Report — {report.dataset_name}",
         "",
-        f"Examples evaluated: {len(report.results)}",
+        f"Examples evaluated: {len(report.results)} — "
+        f"{report.scored_example_count} scored for Recall@K{excluded_note}",
         "",
         "## Summary",
         "",

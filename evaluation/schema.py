@@ -29,15 +29,28 @@ class EvalExample(BaseModel):
 
     query: str = Field(..., min_length=1)
     relevant_sources: list[str] = Field(
-        ...,
-        min_length=1,
-        description="Filenames that should be retrieved for this query, e.g. ['career.md'].",
+        default_factory=list,
+        description=(
+            "Filenames that should be retrieved for this query, e.g. ['career.md']. "
+            "Leave empty for a genuinely unanswerable question — see the 'no_answer' "
+            "category and the caveat in evaluation/report.py about what an empty "
+            "list does (and doesn't) mean for Recall@K."
+        ),
     )
     relevant_chunk_ids: list[str] = Field(
         default_factory=list,
         description=(
             "Optional finer-grained ground truth, e.g. ['career_1']. "
             "Leave empty to evaluate at source-file granularity."
+        ),
+    )
+    category: Optional[str] = Field(
+        default=None,
+        description=(
+            "Free-text tag for grouping examples in reports, e.g. 'simple_factual', "
+            "'multi_document', 'ambiguous', 'requires_context', 'no_answer', "
+            "'conflicting_or_old_info'. Not validated against a fixed set — purely "
+            "descriptive, so new categories don't require a schema change."
         ),
     )
     notes: Optional[str] = Field(

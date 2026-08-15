@@ -33,7 +33,23 @@ class Settings(BaseSettings):
     collection_name: str = "mahima_knowledge_base"
 
     # Retrieval
-    top_k: int = 8
+    # top_k is the FINAL number of chunks sent to the LLM as context — after
+    # reranking, if enabled. It is not how many the vector store is queried
+    # for; see retrieval_candidates below.
+    # Lowered 8 -> 3 once reranking (below) brought Recall@1 to 1.000 across
+    # the eval dataset — see README "Iteration 4". Verified via
+    # evaluation/: top_k=2 was rejected because it silently drops a
+    # genuinely relevant chunk in 3 of 10 eval queries; top_k=3 does not,
+    # in any of them.
+    top_k: int = 3
+
+    # Reranking — a second, LLM-judged relevance pass over retrieval
+    # candidates (see app/services/reranker.py for why this exists).
+    use_reranker: bool = True
+    # How many chunks the vector store is asked for before reranking narrows
+    # them down to top_k. Must be >= top_k for reranking to have anything
+    # extra to choose from; raise it to give the reranker a wider net.
+    retrieval_candidates: int = 10
 
     # Ingestion source
     data_dir: str = "./data"

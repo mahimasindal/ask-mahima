@@ -1,0 +1,49 @@
+{
+  "name": "ask-mahima-v0",
+  "examples": [
+    {
+      "query": "What does Mahima currently do for work?",
+      "relevant_sources": ["career.md"],
+      "notes": "Should hit the Current Role section."
+    },
+    {
+      "query": "What are Mahima's technical skills?",
+      "relevant_sources": ["career.md"],
+      "notes": "Should hit the Skills section."
+    },
+    {
+      "query": "What has Mahima worked on before her current role?",
+      "relevant_sources": ["career.md"],
+      "notes": "Should hit Work History."
+    },
+    {
+      "query": "What are Mahima's hobbies outside of work?",
+      "relevant_sources": ["interests.md"]
+    },
+    {
+      "query": "What topics does Mahima enjoy learning about?",
+      "relevant_sources": ["interests.md"]
+    },
+    {
+      "query": "What is the Ask Mahima project and how does it work?",
+      "relevant_sources": ["projects.md"],
+      "notes": "This is a self-referential question about this very RAG app — good edge case."
+    },
+    {
+      "query": "Where can I find Mahima's GitHub or LinkedIn?",
+      "relevant_sources": ["links.md"]
+    },
+    {
+      "query": "How would you describe Mahima's personality?",
+      "relevant_sources": ["about_me.md"]
+    },
+    {
+      "query": "Tell me a fun fact about Mahima.",
+      "relevant_sources": ["about_me.md"]
+    },
+    {
+      "query": "What has Mahima written about, and what are her strongest opinions?",
+      "relevant_sources": ["writing.md"]
+    }
+  ]
+}

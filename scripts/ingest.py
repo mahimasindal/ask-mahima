@@ -26,12 +26,17 @@ from app.services.config import get_settings
 from app.services.retrieval import ChromaVectorStore
 
 MAX_CHUNK_CHARS = 800
-MIN_CHUNK_CHARS = 60  # sections shorter than this carry too little signal to
-# stand alone — e.g. a "## GitHub\nhttps://..." section is almost all
-# boilerplate to a sentence embedding model, so it can rank artificially
-# close to unrelated queries and crowd out longer, genuinely relevant
-# chunks. Merging short sections into a neighbor fixes this generically,
-# without special-casing any particular file.
+MIN_CHUNK_CHARS = 150  # sections shorter than this carry too little signal to
+# stand alone. Originally 60, which was too low to catch the actual failure
+# mode: measured via evaluation/ (Pearson r=-0.616 between chunk length and
+# similarity-to-arbitrary-query across this collection), very short chunks
+# get systematically inflated cosine similarity to almost any query under
+# all-MiniLM-L6-v2's mean-pooled embeddings — not because their words are
+# topically adjacent, but essentially because they're short. links.md's
+# "## GitHub\nhttps://..."-style sections (63-122 chars) were the three
+# worst offenders in the whole collection under the old threshold. Merging
+# short sections into a neighbor fixes this generically, without
+# special-casing any particular file.
 HEADING_PATTERN = re.compile(r"^##\s+(.+)$", re.MULTILINE)
 
 
@@ -62,10 +67,23 @@ def load_markdown_files(data_dir: str) -> list[tuple[str, str]]:
     return [(f.name, f.read_text(encoding="utf-8")) for f in files]
 
 
-def _split_large_section(text: str, max_chars: int) -> list[str]:
+def _split_large_section(text: str, max_chars: int, min_chars: int) -> list[str]:
     """Fallback splitter for oversized sections: split by paragraph, with a
     one-paragraph overlap between consecutive pieces so context isn't lost
-    at the boundary."""
+    at the boundary.
+
+    Found via the retrieval eval harness (evaluation/): a section whose
+    first paragraph is short (e.g. just its "## Heading") followed by one
+    large paragraph used to get flushed as two pieces the moment the second
+    paragraph alone exceeded max_chars — the first piece being just the
+    bare heading, a near-empty chunk carrying almost no signal that still
+    occupied a top-K retrieval slot. Requiring an accumulated piece to reach
+    min_chars before it's allowed to flush keeps that heading attached to
+    real content instead, at the cost of occasionally producing a piece
+    somewhat larger than max_chars — a better trade for this content, where
+    a short-heading-then-long-paragraph shape is the common case, not the
+    exception.
+    """
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
     if not paragraphs:
         return [text.strip()] if text.strip() else []
@@ -74,8 +92,10 @@ def _split_large_section(text: str, max_chars: int) -> list[str]:
     current: list[str] = []
     current_len = 0
     for para in paragraphs:
-        if current_len + len(para) > max_chars and current:
-            pieces.append("\n\n".join(current))
+        piece_so_far = "\n\n".join(current)
+        would_overflow = current_len + len(para) > max_chars
+        if would_overflow and current and len(piece_so_far) >= min_chars:
+            pieces.append(piece_so_far)
             # overlap: keep the last paragraph as the start of the next piece
             current = [current[-1], para]
             current_len = len(current[-2]) + len(para)
@@ -116,7 +136,7 @@ def chunk_document(filename: str, text: str) -> list[dict]:
         pieces = (
             [section]
             if len(section) <= MAX_CHUNK_CHARS
-            else _split_large_section(section, MAX_CHUNK_CHARS)
+            else _split_large_section(section, MAX_CHUNK_CHARS, MIN_CHUNK_CHARS)
         )
         for piece in pieces:
             if not piece.strip():

@@ -9,6 +9,7 @@ LLM logic stay independent of each other; this is where they're composed.
 from app.models.chat import ChatResponse
 from app.models.retrieval import RetrievedChunk
 from app.services.llm import LLMClient
+from app.services.reranker import Reranker
 from app.services.retrieval import Retriever
 
 SYSTEM_PROMPT = (
@@ -69,19 +70,27 @@ def _dedupe_sources(chunks: list[RetrievedChunk]) -> list[str]:
 
 
 class RagService:
-    def __init__(self, retriever: Retriever, llm_client: LLMClient):
+    def __init__(self, retriever: Retriever, llm_client: LLMClient, reranker: Reranker, top_k: int):
         self._retriever = retriever
         self._llm_client = llm_client
+        self._reranker = reranker
+        self._top_k = top_k
 
     def answer(self, question: str) -> ChatResponse:
-        chunks = self._retriever.retrieve(question)
+        candidates = self._retriever.retrieve(question)
 
         # No chunks at all (e.g. empty/unpopulated knowledge base) — short-circuit
         # without calling the LLM. This is deterministic and free, and distinct
         # from the prompt-level "say I don't know" instruction, which handles
         # the case where chunks WERE retrieved but don't answer the question.
-        if not chunks:
+        if not candidates:
             return ChatResponse(answer=NO_CONTEXT_ANSWER, sources=[])
+
+        # Reranker narrows the (wider) candidate pool down to top_k using
+        # actual relevance judgment rather than raw embedding distance —
+        # see app/services/reranker.py for why. NoOpReranker just truncates,
+        # so this line behaves the same as before when reranking is off.
+        chunks = self._reranker.rerank(question, candidates, top_k=self._top_k)
 
         context = format_context(chunks)
         user_prompt = build_user_prompt(question, context)

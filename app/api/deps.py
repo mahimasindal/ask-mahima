@@ -11,6 +11,7 @@ from functools import lru_cache
 from app.services.config import get_settings
 from app.services.llm import LLMClient
 from app.services.rag import RagService
+from app.services.reranker import LLMReranker, NoOpReranker, Reranker
 from app.services.retrieval import ChromaVectorStore, Retriever, VectorStore
 
 
@@ -21,7 +22,9 @@ def get_vector_store() -> VectorStore:
 
 @lru_cache
 def get_retriever() -> Retriever:
-    return Retriever(get_vector_store(), top_k=get_settings().top_k)
+    # Fetches the wider candidate pool, not the final top_k — the reranker
+    # (or NoOpReranker, if disabled) narrows it down in RagService.answer().
+    return Retriever(get_vector_store(), top_k=get_settings().retrieval_candidates)
 
 
 @lru_cache
@@ -30,5 +33,13 @@ def get_llm_client() -> LLMClient:
 
 
 @lru_cache
+def get_reranker() -> Reranker:
+    settings = get_settings()
+    if settings.use_reranker:
+        return LLMReranker(get_llm_client())
+    return NoOpReranker()
+
+
+@lru_cache
 def get_rag_service() -> RagService:
-    return RagService(get_retriever(), get_llm_client())
+    return RagService(get_retriever(), get_llm_client(), get_reranker(), top_k=get_settings().top_k)

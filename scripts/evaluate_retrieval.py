@@ -10,6 +10,12 @@ Run:
     python scripts/evaluate_retrieval.py
     python scripts/evaluate_retrieval.py evaluation/data/eval_dataset.json
     python scripts/evaluate_retrieval.py --k 1 3 5 --out evaluation/reports/latest.md
+    python scripts/evaluate_retrieval.py --no-rerank   # free, no LLM calls
+
+By default this reranks (matching Settings.use_reranker), which makes one
+real LLM call per query via OpenRouter — not free, though cheap (short
+passage previews, no generation). Pass --no-rerank for a zero-cost,
+vector-similarity-only baseline.
 """
 
 import argparse
@@ -37,6 +43,11 @@ def main() -> None:
     )
     parser.add_argument("--out", default=str(DEFAULT_REPORT), help="Where to write the Markdown report.")
     parser.add_argument("--quiet", action="store_true", help="Don't also print the report to stdout.")
+    parser.add_argument(
+        "--no-rerank",
+        action="store_true",
+        help="Skip reranking — evaluate raw vector-similarity order only (free, no LLM calls).",
+    )
     args = parser.parse_args()
 
     dataset = EvalDataset.load(args.dataset)
@@ -44,7 +55,8 @@ def main() -> None:
         print(f"{args.dataset} has no examples — nothing to evaluate.")
         return
 
-    runner = EvaluationRunner.from_settings(k_values=tuple(sorted(set(args.k))))
+    use_reranker = False if args.no_rerank else None  # None = defer to Settings.use_reranker
+    runner = EvaluationRunner.from_settings(k_values=tuple(sorted(set(args.k))), use_reranker=use_reranker)
     report = runner.run(dataset)
 
     out_path = save_markdown(report, args.out)

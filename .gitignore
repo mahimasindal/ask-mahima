@@ -4,5 +4,6 @@ venv/
 __pycache__/
 *.pyc
 data/chroma_db/
+evaluation/reports/
 .pytest_cache/
 .DS_Store
